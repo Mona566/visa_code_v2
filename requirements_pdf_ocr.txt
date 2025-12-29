@@ -1,0 +1,17 @@
+# PDF转Markdown工具依赖包
+# 安装命令: pip install -r requirements_pdf_ocr.txt
+
+# 腾讯云SDK
+tencentcloud-sdk-python-common>=3.0.0
+tencentcloud-sdk-python-ocr>=3.0.0
+
+# PDF转图片
+pdf2image>=1.16.3
+# 注意: pdf2image需要系统安装poppler
+# Ubuntu/Debian: sudo apt-get install poppler-utils
+# macOS: brew install poppler
+# Windows: 下载poppler并添加到PATH
+
+# 图片处理
+Pillow>=10.0.0
+
