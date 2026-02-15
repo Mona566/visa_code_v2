@@ -74,6 +74,10 @@ PDF Files → [pdf_to_markdown.py] → *.pdf.md → [llm_analysis.py] → JSON �
 - **Error resilience:** `page_detection.py` handles page redirects, error pages, and postback timing issues.
 - **Mock-friendly tests:** The test suite uses `unittest.mock` to mock Selenium WebDriver, so tests run without a browser.
 
+## Git Workflow
+
+- Always open PRs targeting the `claude_dev` branch, not `main`.
+
 ## Environment Variables (`.env`)
 
 | Variable | Purpose |
