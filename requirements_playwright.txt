@@ -1,0 +1,6 @@
+# Playwright Browser Automation Dependencies
+# Install with: pip install -r requirements_playwright.txt
+# Then run: playwright install chromium
+
+# Playwright - Browser automation
+playwright>=1.40.0
