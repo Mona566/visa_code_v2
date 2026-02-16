@@ -774,75 +774,52 @@ def fill_page_9(browser, wait, screenshots_dir=None):
         except Exception as e:
             log_operation("Second Qualification", "WARN", f"Error: {e}")
 
-        # 7e. Gaps in Education explanation
+        # 7e. Gaps in Education explanation (real ID: txtEduGaps)
         try:
             redirect_check = check_homepage_redirect(browser, wait)
             if redirect_check == "homepage":
                 return "homepage_redirect"
 
             log_operation("Gaps in Education", "INFO", "Filling gaps in education explanation...")
-            gaps_filled = False
-            for gap_id in ["ctl00_ContentPlaceHolder1_txtGapsInEducation",
-                           "ctl00_ContentPlaceHolder1_txtEduGaps",
-                           "ctl00_ContentPlaceHolder1_txtGapInEducation"]:
-                try:
-                    fill_field_by_id(gap_id,
-                        "From July 2024 to December 2025, the applicant focused on English language preparation for overseas study, including self-study and IELTS/Duolingo test preparation.",
-                        "textarea")
-                    gaps_filled = True
-                    log_operation("Gaps in Education", "SUCCESS", f"Filled using ID: {gap_id}")
-                    break
-                except Exception:
-                    pass
-            if not gaps_filled:
-                try:
-                    fill_text_by_label(browser, wait, "Gaps in Education",
-                        "From July 2024 to December 2025, the applicant focused on English language preparation for overseas study, including self-study and IELTS/Duolingo test preparation.")
-                    gaps_filled = True
-                    log_operation("Gaps in Education", "SUCCESS", "Filled using label")
-                except Exception:
-                    pass
-            if not gaps_filled:
-                log_operation("Gaps in Education", "WARN", "Could not fill Gaps in Education")
+            if fill_field_by_id("ctl00_ContentPlaceHolder1_txtEduGaps",
+                    "From July 2024 to December 2025, the applicant focused on English language preparation for overseas study, including self-study and IELTS/Duolingo test preparation.",
+                    "textarea"):
+                log_operation("Gaps in Education", "SUCCESS", "Filled using ID: txtEduGaps")
+            else:
+                log_operation("Gaps in Education", "WARN", "Could not fill Gaps in Education (txtEduGaps not found)")
             time.sleep(OPERATION_DELAY)
         except Exception as e:
             log_operation("Gaps in Education", "WARN", f"Error: {e}")
 
-        # 7f. Previous Employment
+        # 7f. Previous Employment (real IDs: txtEmployerName1, txtEmpFrom1, txtEmpTill1, txtPositionHeld1)
         try:
             redirect_check = check_homepage_redirect(browser, wait)
             if redirect_check == "homepage":
                 return "homepage_redirect"
 
             log_operation("Previous Employment", "INFO", "Filling previous employment...")
-            for emp_id in ["ctl00_ContentPlaceHolder1_txtNameEmployer1",
-                           "ctl00_ContentPlaceHolder1_txtNameEmployer"]:
-                try:
-                    fill_field_by_id(emp_id, "None", "textarea")
-                    log_operation("Employment Name", "SUCCESS", f"Filled using ID: {emp_id}")
-                    break
-                except Exception:
-                    pass
+            if fill_field_by_id("ctl00_ContentPlaceHolder1_txtEmployerName1", "None", "textarea"):
+                log_operation("Employment Name", "SUCCESS", "Filled using ID: txtEmployerName1")
+            else:
+                log_operation("Employment Name", "WARN", "txtEmployerName1 not found")
             time.sleep(OPERATION_DELAY)
 
-            for date_id in ["ctl00_ContentPlaceHolder1_txtDateEmployment1",
-                            "ctl00_ContentPlaceHolder1_txtDateEmployment"]:
-                try:
-                    fill_field_by_id(date_id, "N/A", "text")
-                    log_operation("Employment Date", "SUCCESS", f"Filled using ID: {date_id}")
-                    break
-                except Exception:
-                    pass
+            if fill_field_by_id("ctl00_ContentPlaceHolder1_txtEmpFrom1", "N/A", "text"):
+                log_operation("Employment From", "SUCCESS", "Filled using ID: txtEmpFrom1")
+            else:
+                log_operation("Employment From", "WARN", "txtEmpFrom1 not found")
             time.sleep(OPERATION_DELAY)
 
-            for pos_id in ["ctl00_ContentPlaceHolder1_txtPositionEmployer1",
-                           "ctl00_ContentPlaceHolder1_txtPositionEmployer"]:
-                try:
-                    fill_field_by_id(pos_id, "N/A", "textarea")
-                    log_operation("Employment Position", "SUCCESS", f"Filled using ID: {pos_id}")
-                    break
-                except Exception:
-                    pass
+            if fill_field_by_id("ctl00_ContentPlaceHolder1_txtEmpTill1", "N/A", "text"):
+                log_operation("Employment Till", "SUCCESS", "Filled using ID: txtEmpTill1")
+            else:
+                log_operation("Employment Till", "WARN", "txtEmpTill1 not found")
+            time.sleep(OPERATION_DELAY)
+
+            if fill_field_by_id("ctl00_ContentPlaceHolder1_txtPositionHeld1", "N/A", "text"):
+                log_operation("Employment Position", "SUCCESS", "Filled using ID: txtPositionHeld1")
+            else:
+                log_operation("Employment Position", "WARN", "txtPositionHeld1 not found")
             time.sleep(OPERATION_DELAY)
         except Exception as e:
             log_operation("Previous Employment", "WARN", f"Error: {e}")
@@ -870,29 +847,13 @@ def fill_page_9(browser, wait, screenshots_dir=None):
                 return "homepage_redirect"
 
             log_operation("Other Funds Details", "INFO", "Filling other funds details...")
-            other_funds_filled = False
-            for funds_id in ["ctl00_ContentPlaceHolder1_txtOtherFunds",
-                             "ctl00_ContentPlaceHolder1_txtOtherFundsDetails",
-                             "ctl00_ContentPlaceHolder1_txtFundsDetails"]:
-                try:
-                    fill_field_by_id(funds_id,
-                        "Personal savings and family financial support. The applicant's family will provide financial assistance for tuition and living expenses during the study period in Ireland.",
-                        "textarea")
-                    other_funds_filled = True
-                    log_operation("Other Funds Details", "SUCCESS", f"Filled using ID: {funds_id}")
-                    break
-                except Exception:
-                    pass
-            if not other_funds_filled:
-                try:
-                    fill_text_by_label(browser, wait, "Details of any other funds",
-                        "Personal savings and family financial support. The applicant's family will provide financial assistance for tuition and living expenses during the study period in Ireland.")
-                    other_funds_filled = True
-                    log_operation("Other Funds Details", "SUCCESS", "Filled using label")
-                except Exception:
-                    pass
-            if not other_funds_filled:
-                log_operation("Other Funds Details", "WARN", "Could not fill Other Funds Details")
+            # Real ID: txtOtherFundDtl
+            if fill_field_by_id("ctl00_ContentPlaceHolder1_txtOtherFundDtl",
+                    "Personal savings and family financial support. The applicant's family will provide financial assistance for tuition and living expenses during the study period in Ireland.",
+                    "textarea"):
+                log_operation("Other Funds Details", "SUCCESS", "Filled using ID: txtOtherFundDtl")
+            else:
+                log_operation("Other Funds Details", "WARN", "Could not fill Other Funds Details (txtOtherFundDtl not found)")
             time.sleep(OPERATION_DELAY)
         except Exception as e:
             log_operation("Other Funds Details", "WARN", f"Error: {e}")

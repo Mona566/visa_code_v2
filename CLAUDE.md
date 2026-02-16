@@ -6,38 +6,55 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a Python automation tool for filling Irish INIS (Irish Naturalisation and Immigration Service) online visa application forms. It uses a three-stage pipeline: PDF OCR → LLM field extraction → Selenium browser automation.
 
+## Python Environment
+
+All commands must run inside the **`visa_autofill`** conda environment:
+
+```bash
+conda activate visa_autofill
+# or prefix any command with:
+conda run -n visa_autofill python ...
+```
+
+The full Python interpreter path is `/Users/boyu/miniconda3/envs/visa_autofill/bin/python`.
+
 ## Development Commands
 
 ### Running the Application
 ```bash
 # 1. Convert PDF documents to Markdown via OCR
-python pdf_to_markdown.py files/passport.pdf
+conda run -n visa_autofill python pdf_to_markdown.py files/passport.pdf
 
 # 2. Extract structured visa fields from Markdown using LLM
-python llm_analysis.py
+conda run -n visa_autofill python llm_analysis.py
 
 # 3. Launch automated form filling
-python insert_browser.py
+conda run -n visa_autofill python insert_browser.py
 ```
 
 ### Testing
 ```bash
-# Run all tests
-python tests/run_tests.py
-python -m unittest discover tests -v
+# Run all unit tests
+conda run -n visa_autofill python tests/run_tests.py
+conda run -n visa_autofill python -m unittest discover tests -v
 
 # Run a specific test module
-python -m unittest tests.test_utils -v
-python -m unittest tests.test_form_helpers -v
-python -m unittest tests.test_page_detection -v
+conda run -n visa_autofill python -m unittest tests.test_utils -v
+conda run -n visa_autofill python -m unittest tests.test_form_helpers -v
 
 # Run a specific test class or method
-python -m unittest tests.test_utils.TestUtils.test_setup_logging -v
+conda run -n visa_autofill python -m unittest tests.test_utils.TestUtils.test_setup_logging -v
+
+# Run integration tests (requires Chrome + network access)
+conda run -n visa_autofill env RUN_INTEGRATION_TESTS=1 python -m unittest tests.test_integration_screenshots -v
+
+# Run integration tests starting from a specific page (requires application_number.txt)
+conda run -n visa_autofill env RUN_INTEGRATION_TESTS=1 START_FROM_PAGE=9 python -m unittest tests.test_integration_screenshots -v
 ```
 
 ### Dependencies
 ```bash
-pip install -r requirements_pdf_ocr.txt
+conda run -n visa_autofill pip install -r requirements_pdf_ocr.txt
 # Also required: selenium, langchain-openai, python-dotenv, pymupdf
 ```
 

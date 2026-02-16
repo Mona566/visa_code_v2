@@ -2106,7 +2106,7 @@ def fill_application_form(browser, wait, enable_screenshots=False, screenshots_d
                     # Continue to page 3
                     time.sleep(2)
                     page_3_result = fill_page_3(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
-                                if page_3_result and ("homepage_redirect" in str(page_3_result) or "form_page_" in str(page_3_result)):
+                    if page_3_result and ("homepage_redirect" in str(page_3_result) or "form_page_" in str(page_3_result)):
                         # Handle page 3 redirect
                         if "homepage_redirect" in str(page_3_result):
                             if restart_from_homepage(browser, wait):
@@ -2117,12 +2117,12 @@ def fill_application_form(browser, wait, enable_screenshots=False, screenshots_d
                             if page_num_3 >= 4:
                                 time.sleep(2)
                                 fill_page_4(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
-                                            return
+                                return
                 elif page_num >= 4:
                     # Skip to page 4
                     time.sleep(2)
                     fill_page_4(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
-                                return
+                    return
         
         # Wait a bit after page 2 navigation
         time.sleep(2)
@@ -2152,7 +2152,7 @@ def fill_application_form(browser, wait, enable_screenshots=False, screenshots_d
                     # Skip to page 4
                     time.sleep(2)
                     fill_page_4(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
-                                return
+                    return
 
         # Wait a bit after page 3 navigation
         time.sleep(2)
