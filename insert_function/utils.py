@@ -2,6 +2,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
+import os
 import time
 import datetime
 import logging
@@ -30,6 +31,37 @@ def setup_logging():
 
 # Initialize logger
 logger = setup_logging()
+
+
+def take_screenshot(browser, page_name, output_dir="screenshots"):
+    """
+    Save a screenshot of the current browser state.
+
+    Args:
+        browser: Selenium WebDriver instance
+        page_name: Filesystem-safe label (e.g. "page_1_after_fill")
+        output_dir: Directory to save into (created if missing).
+                    Relative paths are resolved from the current working directory.
+
+    Returns:
+        str: Absolute path to the saved PNG, or None on failure.
+
+    Filename format: {output_dir}/{page_name}_{YYYYMMDD_HHMMSS}.png
+    """
+    try:
+        abs_output_dir = os.path.abspath(output_dir)
+        os.makedirs(abs_output_dir, exist_ok=True)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        filepath = os.path.join(abs_output_dir, f"{page_name}_{timestamp}.png")
+        success = browser.save_screenshot(filepath)
+        if success:
+            log_operation("take_screenshot", "SUCCESS", f"Saved: {filepath}")
+            return filepath
+        log_operation("take_screenshot", "WARN", f"save_screenshot() returned False: {filepath}")
+        return None
+    except Exception as e:
+        log_operation("take_screenshot", "ERROR", f"Failed '{page_name}': {str(e)[:200]}")
+        return None
 
 
 def log_operation(operation_name, status="INFO", details=""):
