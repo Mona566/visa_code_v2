@@ -24,9 +24,160 @@ from .page_fillers import (
     fill_page_6, fill_page_7, fill_page_8, fill_page_9, fill_page_10
 )
 
+def initialize_form_session(browser, wait):
+    """
+    Navigate through the INIS homepage and privacy statement to reach the form entry page.
+
+    This must be called before fill_page_1(). It handles:
+      1. OnlineHome.aspx  → click "Continue"
+      2. OnlineHome2.aspx → check privacy checkbox + click submit
+      3. Wait for VisaTypeDetails.aspx
+
+    Args:
+        browser: Selenium WebDriver instance (already open)
+        wait:    WebDriverWait instance
+
+    Returns:
+        bool: True if the browser is now on VisaTypeDetails.aspx, False otherwise.
+    """
+    homepage_url = "https://www.visas.inis.gov.ie/AVATS/OnlineHome.aspx"
+
+    try:
+        # Navigate to homepage if not already there
+        current_url = browser.current_url
+        if "OnlineHome.aspx" not in current_url:
+            log_operation("initialize_form_session", "INFO", f"Navigating to homepage: {homepage_url}")
+            browser.get(homepage_url)
+            time.sleep(3)
+            wait.until(lambda d: d.execute_script("return document.readyState") == "complete")
+
+        # ── Step 1: Click "Continue" on OnlineHome.aspx ──────────────────────
+        log_operation("initialize_form_session", "INFO", "Looking for Continue button...")
+        continue_selectors = [
+            (By.ID, "ctl00_ContentPlaceHolder1_applyNow"),
+            (By.XPATH, "//input[@type='submit' and @value='Continue']"),
+            (By.XPATH, "//input[@type='button' and @value='Continue']"),
+            (By.XPATH, "//button[contains(text(), 'Continue')]"),
+            (By.XPATH, "//a[contains(text(), 'Continue')]"),
+            (By.CSS_SELECTOR, "input[value='Continue']"),
+        ]
+        continue_button = None
+        for by, selector in continue_selectors:
+            try:
+                continue_button = wait.until(EC.element_to_be_clickable((by, selector)))
+                log_operation("initialize_form_session", "SUCCESS", f"Found Continue button: {by}={selector}")
+                break
+            except (TimeoutException, NoSuchElementException):
+                continue
+
+        if not continue_button:
+            log_operation("initialize_form_session", "ERROR", "Continue button not found on homepage")
+            return False
+
+        browser.execute_script("arguments[0].scrollIntoView({block: 'center'});", continue_button)
+        time.sleep(0.5)
+        try:
+            continue_button.click()
+        except Exception:
+            browser.execute_script("arguments[0].click();", continue_button)
+        log_operation("initialize_form_session", "INFO", "Clicked Continue, waiting for OnlineHome2.aspx...")
+
+        # Wait for intermediate page (OnlineHome2.aspx)
+        try:
+            wait.until(lambda d: "OnlineHome2.aspx" in d.current_url or "VisaTypeDetails.aspx" in d.current_url)
+        except TimeoutException:
+            pass
+        time.sleep(2)
+
+        # If already on form page, we're done
+        if "VisaTypeDetails.aspx" in browser.current_url:
+            log_operation("initialize_form_session", "SUCCESS", "Reached form page directly")
+            return True
+
+        # ── Step 2: Privacy checkbox + submit on OnlineHome2.aspx ────────────
+        wait.until(lambda d: d.execute_script("return document.readyState") == "complete")
+        log_operation("initialize_form_session", "INFO", "On OnlineHome2.aspx — looking for privacy checkbox...")
+
+        privacy_checkbox = None
+        privacy_selectors = [
+            (By.ID, "ctl00_ContentPlaceHolder1_CheckBoxRead"),
+            (By.XPATH, "//input[@type='checkbox' and contains(@id, 'CheckBoxRead')]"),
+            (By.XPATH, "//label[contains(text(), 'I acknowledge that I have read and understood')]//preceding::input[@type='checkbox'][1]"),
+            (By.XPATH, "//label[contains(text(), 'I acknowledge')]//following::input[@type='checkbox'][1]"),
+        ]
+        for by, selector in privacy_selectors:
+            try:
+                privacy_checkbox = browser.find_element(by, selector)
+                if privacy_checkbox.is_displayed():
+                    log_operation("initialize_form_session", "SUCCESS", f"Found privacy checkbox: {by}={selector}")
+                    break
+            except NoSuchElementException:
+                continue
+
+        if privacy_checkbox:
+            browser.execute_script("arguments[0].scrollIntoView({block: 'center'});", privacy_checkbox)
+            time.sleep(0.5)
+            if not privacy_checkbox.is_selected():
+                privacy_checkbox.click()
+                log_operation("initialize_form_session", "SUCCESS", "Privacy checkbox checked")
+            else:
+                log_operation("initialize_form_session", "INFO", "Privacy checkbox already checked")
+            time.sleep(1)
+        else:
+            log_operation("initialize_form_session", "WARN", "Privacy checkbox not found — continuing anyway")
+
+        # Find and click the submit button
+        submit_selectors = [
+            (By.ID, "ctl00_ContentPlaceHolder1_btnContinue"),
+            (By.XPATH, "//input[@type='submit' and contains(@value, 'Continue')]"),
+            (By.XPATH, "//input[@type='submit' and contains(@value, 'Save and Continue')]"),
+            (By.XPATH, "//input[@type='button' and contains(@value, 'Continue')]"),
+            (By.XPATH, "//button[contains(text(), 'Continue')]"),
+        ]
+        submit_button = None
+        for by, selector in submit_selectors:
+            try:
+                submit_button = wait.until(EC.element_to_be_clickable((by, selector)))
+                log_operation("initialize_form_session", "SUCCESS", f"Found submit button: {by}={selector}")
+                break
+            except (TimeoutException, NoSuchElementException):
+                continue
+
+        if not submit_button:
+            log_operation("initialize_form_session", "ERROR", "Submit button not found on privacy page")
+            return False
+
+        browser.execute_script("arguments[0].scrollIntoView({block: 'center'});", submit_button)
+        time.sleep(0.5)
+        try:
+            submit_button.click()
+        except Exception:
+            browser.execute_script("arguments[0].click();", submit_button)
+        log_operation("initialize_form_session", "INFO", "Clicked submit, waiting for form page...")
+
+        # Wait for form page
+        try:
+            wait.until(lambda d: "VisaTypeDetails.aspx" in d.current_url)
+        except TimeoutException:
+            pass
+        time.sleep(2)
+        wait.until(lambda d: d.execute_script("return document.readyState") == "complete")
+
+        if "VisaTypeDetails.aspx" in browser.current_url:
+            log_operation("initialize_form_session", "SUCCESS", f"Session initialized — on form page: {browser.current_url}")
+            return True
+
+        log_operation("initialize_form_session", "ERROR", f"Unexpected URL after initialization: {browser.current_url}")
+        return False
+
+    except Exception as e:
+        log_operation("initialize_form_session", "ERROR", f"Exception during initialization: {str(e)[:300]}")
+        return False
+
+
 def auto_fill_inis_form():
     """
-    Automatically open the Irish visa application webpage, click continue and agree buttons, 
+    Automatically open the Irish visa application webpage, click continue and agree buttons,
     and enter the application form page
     """
     # Keep the browser window open

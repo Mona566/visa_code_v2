@@ -32,6 +32,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 
 from insert_function.utils import take_screenshot, log_operation, setup_logging
+from insert_function.main_flow import initialize_form_session
 from insert_function.page_fillers import (
     fill_page_1, fill_page_2, fill_page_3, fill_page_4, fill_page_5,
     fill_page_6, fill_page_7, fill_page_8, fill_page_9, fill_page_10,
@@ -41,8 +42,6 @@ SCREENSHOTS_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     "screenshots", "integration",
 )
-
-TARGET_URL = "https://www.visas.inis.gov.ie/AVATS/VisaTypeDetails.aspx"
 
 logger = setup_logging()
 
@@ -77,17 +76,19 @@ class TestIntegrationScreenshots(unittest.TestCase):
         options.add_argument("--start-maximized")
 
         cls.browser = webdriver.Chrome(options=options)
-        cls.wait = WebDriverWait(cls.browser, 10)
+        cls.wait = WebDriverWait(cls.browser, 15)
         cls.screenshots_taken = []
         cls.failed_at_page = None
 
-        log_operation("setUpClass", "INFO", f"Navigating to {TARGET_URL}")
-        cls.browser.get(TARGET_URL)
-        time.sleep(3)
-        cls.wait.until(
-            lambda d: d.execute_script("return document.readyState") == "complete"
-        )
-        log_operation("setUpClass", "INFO", f"Page title: {cls.browser.title}")
+        log_operation("setUpClass", "INFO", "Initializing form session (homepage → privacy → form)...")
+        ok = initialize_form_session(cls.browser, cls.wait)
+        if not ok:
+            cls.browser.quit()
+            raise RuntimeError(
+                "initialize_form_session() failed — could not reach the INIS form page. "
+                "Check network access and that no application_number.txt is interfering."
+            )
+        log_operation("setUpClass", "INFO", f"Session ready. URL: {cls.browser.current_url}")
 
     @classmethod
     def tearDownClass(cls):
