@@ -11,7 +11,7 @@ import re
 # 导入工具函数
 from .utils import (
     OPERATION_DELAY, POSTBACK_DELAY, POSTBACK_WAIT_DELAY, POSTBACK_BETWEEN_DELAY,
-    log_operation, verify_page_state, safe_postback_operation
+    log_operation, verify_page_state, safe_postback_operation, take_screenshot
 )
 from .page_detection import (
     check_homepage_redirect, check_and_handle_error_page,
@@ -26,7 +26,7 @@ from .application_management import (
     extract_application_number, save_application_number
 )
 
-def fill_page_10(browser, wait):
+def fill_page_10(browser, wait, screenshots_dir=None):
     """
     Fill the tenth page of the application form
     
@@ -310,6 +310,8 @@ def fill_page_10(browser, wait):
             return "homepage_redirect"
         
         # Click Save and Continue button to go to next page
+        if screenshots_dir:
+            take_screenshot(browser, f"page_10_filled", output_dir=screenshots_dir)
         button_result = click_next_button(browser, wait)
         
         # Check if button click resulted in homepage redirect
