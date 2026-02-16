@@ -1882,8 +1882,7 @@ def fill_application_form(browser, wait, enable_screenshots=False, screenshots_d
             pass
         
         # Fill Page 1
-        page_1_result = fill_page_1(browser, wait)
-        _screenshot("page_1_after_fill")
+        page_1_result = fill_page_1(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
 
         # Check for application error - stop all page filling immediately
         if page_1_result == "application_error":
@@ -2001,8 +2000,7 @@ def fill_application_form(browser, wait, enable_screenshots=False, screenshots_d
         time.sleep(2)
         
         # Fill Page 2 and check result
-        page_2_result = fill_page_2(browser, wait)
-        _screenshot("page_2_after_fill")
+        page_2_result = fill_page_2(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
 
         # Check for application error - stop all page filling immediately
         if page_2_result == "application_error":
@@ -2107,9 +2105,8 @@ def fill_application_form(browser, wait, enable_screenshots=False, screenshots_d
                 if page_num >= 3:
                     # Continue to page 3
                     time.sleep(2)
-                    page_3_result = fill_page_3(browser, wait)
-                    _screenshot("page_3_after_fill")
-                    if page_3_result and ("homepage_redirect" in str(page_3_result) or "form_page_" in str(page_3_result)):
+                    page_3_result = fill_page_3(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
+                                if page_3_result and ("homepage_redirect" in str(page_3_result) or "form_page_" in str(page_3_result)):
                         # Handle page 3 redirect
                         if "homepage_redirect" in str(page_3_result):
                             if restart_from_homepage(browser, wait):
@@ -2119,22 +2116,19 @@ def fill_application_form(browser, wait, enable_screenshots=False, screenshots_d
                             page_num_3 = int(str(page_3_result).split("_")[-1])
                             if page_num_3 >= 4:
                                 time.sleep(2)
-                                fill_page_4(browser, wait)
-                                _screenshot("page_4_after_fill")
-                    return
+                                fill_page_4(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
+                                            return
                 elif page_num >= 4:
                     # Skip to page 4
                     time.sleep(2)
-                    fill_page_4(browser, wait)
-                    _screenshot("page_4_after_fill")
-                    return
+                    fill_page_4(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
+                                return
         
         # Wait a bit after page 2 navigation
         time.sleep(2)
         
         # Fill Page 3
-        page_3_result = fill_page_3(browser, wait)
-        _screenshot("page_3_after_fill")
+        page_3_result = fill_page_3(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
 
         # Check for application error - stop all page filling immediately
         if page_3_result == "application_error":
@@ -2157,16 +2151,14 @@ def fill_application_form(browser, wait, enable_screenshots=False, screenshots_d
                 if page_num >= 4:
                     # Skip to page 4
                     time.sleep(2)
-                    fill_page_4(browser, wait)
-                    _screenshot("page_4_after_fill")
-                    return
+                    fill_page_4(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
+                                return
 
         # Wait a bit after page 3 navigation
         time.sleep(2)
         
         # Fill Page 4
-        page_4_result = fill_page_4(browser, wait)
-        _screenshot("page_4_after_fill")
+        page_4_result = fill_page_4(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
 
         # Check for application error - stop all page filling immediately
         if page_4_result == "application_error":
@@ -2187,8 +2179,7 @@ def fill_application_form(browser, wait, enable_screenshots=False, screenshots_d
         time.sleep(2)
         
         # Fill Page 5
-        page_5_result = fill_page_5(browser, wait)
-        _screenshot("page_5_after_fill")
+        page_5_result = fill_page_5(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
 
         # Check for application error - stop all page filling immediately
         if page_5_result == "application_error":
@@ -2209,8 +2200,7 @@ def fill_application_form(browser, wait, enable_screenshots=False, screenshots_d
         time.sleep(2)
         
         # Fill Page 6
-        page_6_result = fill_page_6(browser, wait)
-        _screenshot("page_6_after_fill")
+        page_6_result = fill_page_6(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
 
         # Check for application error - stop all page filling immediately
         if page_6_result == "application_error":
@@ -2231,8 +2221,7 @@ def fill_application_form(browser, wait, enable_screenshots=False, screenshots_d
         time.sleep(2)
         
         # Fill Page 7
-        page_7_result = fill_page_7(browser, wait)
-        _screenshot("page_7_after_fill")
+        page_7_result = fill_page_7(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
 
         # Check for application error - stop all page filling immediately
         if page_7_result == "application_error":
@@ -2253,8 +2242,7 @@ def fill_application_form(browser, wait, enable_screenshots=False, screenshots_d
         time.sleep(2)
         
         # Fill Page 8
-        page_8_result = fill_page_8(browser, wait)
-        _screenshot("page_8_after_fill")
+        page_8_result = fill_page_8(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
 
         # Check for application error - stop all page filling immediately
         if page_8_result == "application_error":
@@ -2275,8 +2263,7 @@ def fill_application_form(browser, wait, enable_screenshots=False, screenshots_d
         time.sleep(2)
         
         # Fill Page 9
-        page_9_result = fill_page_9(browser, wait)
-        _screenshot("page_9_after_fill")
+        page_9_result = fill_page_9(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
 
         # Check for application error - stop all page filling immediately
         if page_9_result == "application_error":
@@ -2338,8 +2325,7 @@ def fill_application_form(browser, wait, enable_screenshots=False, screenshots_d
         time.sleep(2)
         
         # Fill Page 10
-        page_10_result = fill_page_10(browser, wait)
-        _screenshot("page_10_after_fill")
+        page_10_result = fill_page_10(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
 
         # Check for application error - stop all page filling immediately
         if page_10_result == "application_error":
