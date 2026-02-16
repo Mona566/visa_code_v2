@@ -126,9 +126,13 @@ def initialize_form_session(browser, wait):
         else:
             log_operation("initialize_form_session", "WARN", "Privacy checkbox not found — continuing anyway")
 
-        # Find and click the submit button
+        # Find and click the submit button (use a short 3s wait per selector to fail fast)
+        short_wait = WebDriverWait(browser, 3)
         submit_selectors = [
+            (By.ID, "ctl00_ContentPlaceHolder1_btnSave"),
             (By.ID, "ctl00_ContentPlaceHolder1_btnContinue"),
+            (By.ID, "ctl00_MainContent_btnContinue"),
+            (By.XPATH, "//input[@type='submit']"),
             (By.XPATH, "//input[@type='submit' and contains(@value, 'Continue')]"),
             (By.XPATH, "//input[@type='submit' and contains(@value, 'Save and Continue')]"),
             (By.XPATH, "//input[@type='button' and contains(@value, 'Continue')]"),
@@ -137,7 +141,7 @@ def initialize_form_session(browser, wait):
         submit_button = None
         for by, selector in submit_selectors:
             try:
-                submit_button = wait.until(EC.element_to_be_clickable((by, selector)))
+                submit_button = short_wait.until(EC.element_to_be_clickable((by, selector)))
                 log_operation("initialize_form_session", "SUCCESS", f"Found submit button: {by}={selector}")
                 break
             except (TimeoutException, NoSuchElementException):
