@@ -3,3 +3,9 @@ __pycache__/
 screenshots/
 application_number.txt
 .DS_Store
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.log       
