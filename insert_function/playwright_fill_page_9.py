@@ -1,7 +1,7 @@
 """
 Page 9 Filler using Playwright
 
-Course Details page - Playwright version
+Course Details page - simplified version
 """
 
 import time
@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 def fill_page_9(page: Page):
     """
     Fill Page 9 (Course Details).
+    This page has the "Have you paid your course fees" radio button.
     """
     logger.info("=" * 50)
     logger.info("Filling Page 9: Course Details")
@@ -23,79 +24,72 @@ def fill_page_9(page: Page):
         page.wait_for_load_state("domcontentloaded")
         time.sleep(1)
 
-        # Check if "Have you paid your course fees" needs to be changed to Yes
-        # The radio button ID is: ctl00_ContentPlaceHolder1_rdblstFeesPaid_0 (Yes)
-        # and ctl00_ContentPlaceHolder1_rdblstFeesPaid_1 (No)
+        # Try multiple strategies to find and click the Yes radio for fees
+
+        # Strategy 1: Try by finding label with "Yes" and "fees" or "paid"
         try:
-            # Check if No is selected
-            no_radio = page.locator("#ctl00_ContentPlaceHolder1_rdblstFeesPaid_1")
-            if no_radio.is_visible(timeout=3000):
-                is_no_checked = no_radio.is_checked()
-                if is_no_checked:
-                    # Click Yes radio button
-                    page.locator("#ctl00_ContentPlaceHolder1_rdblstFeesPaid_0").click(timeout=5000)
-                    logger.info("Changed 'Have you paid your course fees' to Yes")
-                    return
-                else:
-                    logger.info("Course fees already set to Yes")
+            all_labels = page.locator("label").all()
+            for label in all_labels:
+                text = label.text_content() or ""
+                if "yes" in text.lower() and ("fee" in text.lower() or "paid" in text.lower()):
+                    label.click()
+                    logger.info("Clicked Yes for fees by label text")
                     return
         except Exception as e:
-            logger.warn(f"Could not check/set course fees: {e}")
+            logger.debug(f"Strategy 1 failed: {e}")
 
-        # If we get here, form might not be filled - try to fill it
-        logger.info("Form may not be filled - attempting to fill fields")
-
-        # Name of School/College
+        # Strategy 2: Try clicking any visible "Yes" option (enumerate and try)
         try:
-            page.fill("#ctl00_ContentPlaceHolder1_txtNameOfCollege", "Greenfield English College", timeout=5000)
-            logger.info("Filled School/College name")
+            yes_options = page.locator("label").filter(has_text="Yes").all()
+            # Click each Yes option until one works (typically 2nd or 3rd)
+            for yes_opt in yes_options:
+                try:
+                    yes_opt.click()
+                    time.sleep(0.3)
+                    logger.debug("Clicked a Yes option")
+                except:
+                    pass
         except Exception as e:
-            logger.warn(f"Could not fill School/College: {e}")
+            logger.debug(f"Strategy 2 failed: {e}")
 
-        # Course Title
+        # Strategy 3: Try JavaScript to find and click
         try:
-            page.fill("#ctl00_ContentPlaceHolder1_txtCourseTitle", "General English Course", timeout=5000)
-            logger.info("Filled Course Title")
+            result = page.evaluate("""
+                () => {
+                    // Find all labels containing Yes and fee/paid
+                    const labels = document.querySelectorAll('label');
+                    for (const label of labels) {
+                        const text = label.textContent.toLowerCase();
+                        if (text.includes('yes') && (text.includes('fee') || text.includes('paid'))) {
+                            // Find associated input
+                            const forAttr = label.getAttribute('for');
+                            if (forAttr) {
+                                const input = document.getElementById(forAttr);
+                                if (input) {
+                                    input.click();
+                                    return 'clicked';
+                                }
+                            }
+                        }
+                    }
+                    // Fallback: find any unchecked Yes radio
+                    const radios = document.querySelectorAll('input[type="radio"]');
+                    for (const r of radios) {
+                        if (!r.checked && r.value && (r.value === 'Y' || r.value === 'Yes')) {
+                            r.click();
+                            return 'clicked_fallback';
+                        }
+                    }
+                    return 'not_found';
+                }
+            """)
+            if result != 'not_found':
+                logger.info(f"JavaScript click result: {result}")
+                return
         except Exception as e:
-            logger.warn(f"Could not fill Course Title: {e}")
+            logger.debug(f"Strategy 3 failed: {e}")
 
-        # Duration of Course
-        try:
-            page.fill("#ctl00_ContentPlaceHolder1_txtCourseDuration", "25 weeks", timeout=5000)
-            logger.info("Filled Course Duration")
-        except Exception as e:
-            logger.warn(f"Could not fill Duration: {e}")
-
-        # Course Start Date
-        try:
-            page.fill("#ctl00_ContentPlaceHolder1_txtCourseDurationfrom", "26/01/2026", timeout=5000)
-            logger.info("Filled Course Start Date")
-        except Exception as e:
-            logger.warn(f"Could not fill Start Date: {e}")
-
-        # Course End Date
-        try:
-            page.fill("#ctl00_ContentPlaceHolder1_txtCourseDurationTill", "17/07/2026", timeout=5000)
-            logger.info("Filled Course End Date")
-        except Exception as e:
-            logger.warn(f"Could not fill End Date: {e}")
-
-        # Have you paid your course fees in full - Select YES
-        try:
-            page.locator("#ctl00_ContentPlaceHolder1_rdblstFeesPaid_0").click(timeout=5000)
-            logger.info("Selected: Have you paid your course fees - Yes")
-        except Exception as e:
-            logger.warn(f"Could not select course fees: {e}")
-
-        # Hours of organized daytime tuition per week
-        try:
-            page.fill("#ctl00_ContentPlaceHolder1_txtTuitionHours", "18.25 hours", timeout=5000)
-            logger.info("Filled Tuition Hours")
-        except Exception as e:
-            logger.warn(f"Could not fill Tuition Hours: {e}")
-
-        logger.info("Page 9 filled")
+        logger.info("Page 9: Attempted to set fees to Yes")
 
     except Exception as e:
         logger.error(f"Failed to fill page 9: {e}")
-        # Don't raise - continue with other pages
