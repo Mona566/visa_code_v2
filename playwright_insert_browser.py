@@ -69,7 +69,9 @@ def main():
     # Run the form filler
     browser = auto_fill_inis_form(
         start_page=args.start_page,
-        headless=args.headless
+        headless=args.headless,
+        enable_screenshots=args.screenshots,
+        screenshots_dir=args.screenshots_dir
     )
 
     # Note: browser stays open for user inspection

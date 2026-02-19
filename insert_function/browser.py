@@ -20,13 +20,14 @@ class HybridBrowser:
     that match how humans read and interact with forms.
     """
 
-    def __init__(self, headless: bool = False, timeout: int = 30000):
+    def __init__(self, headless: bool = False, timeout: int = 30000, ignore_ssl_errors: bool = True):
         """
         Initialize the hybrid browser.
 
         Args:
             headless: Run browser in headless mode
             timeout: Default timeout in milliseconds
+            ignore_ssl_errors: Ignore SSL certificate errors
         """
         self.playwright: Optional[Playwright] = None
         self.browser: Optional[Browser] = None
@@ -34,13 +35,15 @@ class HybridBrowser:
         self.context = None
         self.headless = headless
         self.timeout = timeout
+        self.ignore_ssl_errors = ignore_ssl_errors
 
     def start(self):
         """Start the browser"""
         self.playwright = sync_playwright().start()
         self.browser = self.playwright.chromium.launch(
             headless=self.headless,
-            args=['--disable-blink-features=AutomationControlled']
+            args=['--disable-blink-features=AutomationControlled',
+                  '--ignore-certificate-errors'] if self.ignore_ssl_errors else []
         )
         self.context = self.browser.new_context(
             viewport={'width': 1280, 'height': 800},

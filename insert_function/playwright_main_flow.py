@@ -247,13 +247,15 @@ def fill_application_form(page, start_page: int = 1, enable_screenshots: bool = 
     logger.info("Form filling completed!")
 
 
-def auto_fill_inis_form(start_page: int = 1, headless: bool = False):
+def auto_fill_inis_form(start_page: int = 1, headless: bool = False, enable_screenshots: bool = True, screenshots_dir: str = "screenshots_playwright"):
     """
     Main entry point for Playwright-based form filling.
 
     Args:
         start_page: Page number to start from (default: 1)
         headless: Run browser in headless mode
+        enable_screenshots: Whether to take screenshots (default: True)
+        screenshots_dir: Directory for screenshots
 
     Returns:
         HybridBrowser: The browser instance (caller should close it)
@@ -286,7 +288,7 @@ def auto_fill_inis_form(start_page: int = 1, headless: bool = False):
                         logger.info("Application retrieved successfully")
 
         # Fill the application form
-        fill_application_form(page, start_page=start_page)
+        fill_application_form(page, start_page=start_page, enable_screenshots=enable_screenshots, screenshots_dir=screenshots_dir)
 
         logger.info("=" * 60)
         logger.info("Form filling completed successfully!")

@@ -1,7 +1,8 @@
 """
 Page 9 Filler using Playwright
 
-Course Details page - Playwright version
+Student Visa page (Page 9) - Playwright version
+Based on actual field structure from debug_page9_source.html
 """
 
 import time
@@ -13,86 +14,134 @@ logger = logging.getLogger(__name__)
 
 def fill_page_9(page: Page):
     """
-    Fill Page 9 (Course Details).
+    Fill Page 9 (Student Visa Details).
+
+    Based on actual fields from debug_page9_source.html:
+    - Radio: rdblstAcceptedByCollege, rdblstStudiedBefore, rdblstSpeakEnglish, rdblstSponsor
+    - Text: txtSchoolColl1-5 (textareas), txtQualObtained1-5
+    - Text: txtEduFrom1-5, txtEduTill1-5 (dates)
+    - Text: txtEmployerName1-5 (textareas), txtPositionHeld1-5
+    - Text: txtEmpFrom1-5, txtEmpTill1-5 (dates)
+    - Textarea: txtEduGaps, txtOtherFundDtl
     """
     logger.info("=" * 50)
-    logger.info("Filling Page 9: Course Details")
+    logger.info("Filling Page 9: Student Visa Details")
     logger.info("=" * 50)
 
     try:
         page.wait_for_load_state("domcontentloaded")
         time.sleep(1)
 
-        # Check if "Have you paid your course fees" needs to be changed to Yes
-        # The radio button ID is: ctl00_ContentPlaceHolder1_rdblstFeesPaid_0 (Yes)
-        # and ctl00_ContentPlaceHolder1_rdblstFeesPaid_1 (No)
+        # Check if form is already filled - check first education field
         try:
-            # Check if No is selected
-            no_radio = page.locator("#ctl00_ContentPlaceHolder1_rdblstFeesPaid_1")
-            if no_radio.is_visible(timeout=3000):
-                is_no_checked = no_radio.is_checked()
-                if is_no_checked:
-                    # Click Yes radio button
-                    page.locator("#ctl00_ContentPlaceHolder1_rdblstFeesPaid_0").click(timeout=5000)
-                    logger.info("Changed 'Have you paid your course fees' to Yes")
-                    return
-                else:
-                    logger.info("Course fees already set to Yes")
-                    return
-        except Exception as e:
-            logger.warn(f"Could not check/set course fees: {e}")
+            school_value = page.locator("#ctl00_ContentPlaceHolder1_txtSchoolColl1").input_value(timeout=3000)
+            if school_value and len(school_value.strip()) > 0:
+                logger.info("Form already filled - skipping fill operations")
+                return
+        except Exception:
+            pass
 
-        # If we get here, form might not be filled - try to fill it
-        logger.info("Form may not be filled - attempting to fill fields")
+        logger.info("Form not filled - attempting to fill fields")
 
-        # Name of School/College
+        # === Section: Have you been accepted on a course of study in Ireland? ===
         try:
-            page.fill("#ctl00_ContentPlaceHolder1_txtNameOfCollege", "Greenfield English College", timeout=5000)
-            logger.info("Filled School/College name")
+            # Select Yes
+            page.locator("#ctl00_ContentPlaceHolder1_rdblstAcceptedByCollege_0").click(timeout=5000)
+            logger.info("Selected: Accepted by college - Yes")
+            time.sleep(1)
         except Exception as e:
-            logger.warn(f"Could not fill School/College: {e}")
+            logger.warn(f"Could not select Accepted by college: {e}")
 
-        # Course Title
+        # === Section: Have you studied in Ireland before? ===
         try:
-            page.fill("#ctl00_ContentPlaceHolder1_txtCourseTitle", "General English Course", timeout=5000)
-            logger.info("Filled Course Title")
+            # Select No
+            page.locator("#ctl00_ContentPlaceHolder1_rdblstStudiedBefore_1").click(timeout=5000)
+            logger.info("Selected: Studied before - No")
+            time.sleep(1)
         except Exception as e:
-            logger.warn(f"Could not fill Course Title: {e}")
+            logger.warn(f"Could not select Studied before: {e}")
 
-        # Duration of Course
+        # === Section: Do you speak English? ===
         try:
-            page.fill("#ctl00_ContentPlaceHolder1_txtCourseDuration", "25 weeks", timeout=5000)
-            logger.info("Filled Course Duration")
+            # Select Yes
+            page.locator("#ctl00_ContentPlaceHolder1_rdblstSpeakEnglish_0").click(timeout=5000)
+            logger.info("Selected: Speak English - Yes")
+            time.sleep(1)
         except Exception as e:
-            logger.warn(f"Could not fill Duration: {e}")
+            logger.warn(f"Could not select Speak English: {e}")
 
-        # Course Start Date
+        # === Education History - School/College 1 ===
         try:
-            page.fill("#ctl00_ContentPlaceHolder1_txtCourseDurationfrom", "26/01/2026", timeout=5000)
-            logger.info("Filled Course Start Date")
+            page.fill("#ctl00_ContentPlaceHolder1_txtSchoolColl1", "Test School", timeout=5000)
+            logger.info("Filled School/College 1")
         except Exception as e:
-            logger.warn(f"Could not fill Start Date: {e}")
+            logger.warn(f"Could not fill School/College 1: {e}")
 
-        # Course End Date
         try:
-            page.fill("#ctl00_ContentPlaceHolder1_txtCourseDurationTill", "17/07/2026", timeout=5000)
-            logger.info("Filled Course End Date")
+            page.fill("#ctl00_ContentPlaceHolder1_txtQualObtained1", "High School Diploma", timeout=5000)
+            logger.info("Filled Qualification 1")
         except Exception as e:
-            logger.warn(f"Could not fill End Date: {e}")
+            logger.warn(f"Could not fill Qualification 1: {e}")
 
-        # Have you paid your course fees in full - Select YES
         try:
-            page.locator("#ctl00_ContentPlaceHolder1_rdblstFeesPaid_0").click(timeout=5000)
-            logger.info("Selected: Have you paid your course fees - Yes")
+            page.fill("#ctl00_ContentPlaceHolder1_txtEduFrom1", "01/09/2020", timeout=5000)
+            logger.info("Filled Education From 1")
         except Exception as e:
-            logger.warn(f"Could not select course fees: {e}")
+            logger.warn(f"Could not fill Education From 1: {e}")
 
-        # Hours of organized daytime tuition per week
         try:
-            page.fill("#ctl00_ContentPlaceHolder1_txtTuitionHours", "18.25 hours", timeout=5000)
-            logger.info("Filled Tuition Hours")
+            page.fill("#ctl00_ContentPlaceHolder1_txtEduTill1", "01/06/2024", timeout=5000)
+            logger.info("Filled Education Till 1")
         except Exception as e:
-            logger.warn(f"Could not fill Tuition Hours: {e}")
+            logger.warn(f"Could not fill Education Till 1: {e}")
+
+        # === Employment History - Employer 1 ===
+        try:
+            page.fill("#ctl00_ContentPlaceHolder1_txtEmployerName1", "Previous Employer", timeout=5000)
+            logger.info("Filled Employer Name 1")
+        except Exception as e:
+            logger.warn(f"Could not fill Employer Name 1: {e}")
+
+        try:
+            page.fill("#ctl00_ContentPlaceHolder1_txtPositionHeld1", "Software Developer", timeout=5000)
+            logger.info("Filled Position Held 1")
+        except Exception as e:
+            logger.warn(f"Could not fill Position Held 1: {e}")
+
+        try:
+            page.fill("#ctl00_ContentPlaceHolder1_txtEmpFrom1", "01/01/2023", timeout=5000)
+            logger.info("Filled Employment From 1")
+        except Exception as e:
+            logger.warn(f"Could not fill Employment From 1: {e}")
+
+        try:
+            page.fill("#ctl00_ContentPlaceHolder1_txtEmpTill1", "01/08/2024", timeout=5000)
+            logger.info("Filled Employment Till 1")
+        except Exception as e:
+            logger.warn(f"Could not fill Employment Till 1: {e}")
+
+        # === Sponsor Section ===
+        try:
+            # Select "Own Funds" or similar
+            page.locator("#ctl00_ContentPlaceHolder1_rdblstSponsor_0").click(timeout=5000)
+            logger.info("Selected Sponsor")
+            time.sleep(1)
+        except Exception as e:
+            logger.warn(f"Could not select Sponsor: {e}")
+
+        # === Other Funds Details (if applicable) ===
+        try:
+            page.fill("#ctl00_ContentPlaceHolder1_txtOtherFundDtl", "Personal savings", timeout=5000)
+            logger.info("Filled Other Fund Details")
+        except Exception as e:
+            logger.warn(f"Could not fill Other Fund Details: {e}")
+
+        # === Education Gaps ===
+        try:
+            page.fill("#ctl00_ContentPlaceHolder1_txtEduGaps", "No gaps in education", timeout=5000)
+            logger.info("Filled Education Gaps")
+        except Exception as e:
+            logger.warn(f"Could not fill Education Gaps: {e}")
 
         logger.info("Page 9 filled")
 

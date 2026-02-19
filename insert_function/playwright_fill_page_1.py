@@ -51,6 +51,15 @@ def fill_page_1(page: Page):
         except Exception as e:
             logger.warn(f"Could not fill Country Of Nationality: {e}")
 
+        # Fill Visa Category (dropdown) - if present
+        try:
+            page.select_option("#ctl00_ContentPlaceHolder1_ddlVisaCategory",
+                            "Study", timeout=5000)
+            logger.info("Filled Visa Category by ID")
+            time.sleep(2)
+        except Exception as e:
+            logger.warn(f"Could not fill Visa Category: {e}")
+
         # Fill Reason for Travel (dropdown)
         try:
             page.select_option("#ctl00_ContentPlaceHolder1_ddlReasonForTravel",
@@ -60,58 +69,46 @@ def fill_page_1(page: Page):
         except Exception as e:
             logger.warn(f"Could not fill Reason for Travel: {e}")
 
-        # Select Visa Type (radio) - Long Stay (D)
+        # Select Visa Type (radio) - Long Stay - using label-based selection
         try:
-            page.locator("input[type='radio'][value='Long Stay (D)']").first.click(timeout=5000)
-            logger.info("Selected Visa Type: Long Stay (D)")
-        except Exception as e:
-            logger.warn(f"Could not select Visa Type: {e}")
+            # Try finding by label text first
+            page.get_by_label("Long Stay").click(timeout=5000)
+            logger.info("Selected Visa Type: Long Stay")
+        except Exception:
+            try:
+                # Fallback: find radio by partial value
+                page.locator("input[type='radio']").filter(has=page.locator("xpath=//text()[contains(.,'Long Stay')]")).first.click(timeout=5000)
+                logger.info("Selected Visa Type: Long Stay")
+            except Exception as e:
+                logger.warn(f"Could not select Visa Type: {e}")
 
         # Select Journey Type (radio) - Multiple
         try:
-            page.locator("input[type='radio'][value='Multiple']").first.click(timeout=5000)
+            page.get_by_label("Multiple").click(timeout=5000)
             logger.info("Selected Journey Type: Multiple")
         except Exception as e:
             logger.warn(f"Could not select Journey Type: {e}")
 
-        # Fill Passport Type (dropdown)
+        # Fill Passport Number (correct field ID: txtPassportNo)
         try:
-            page.select_option("#ctl00_ContentPlaceHolder1_ddlPassportType",
-                            "National Passport", timeout=5000)
-            logger.info("Filled Passport Type by ID")
-            time.sleep(2)
-        except Exception as e:
-            logger.warn(f"Could not fill Passport Type: {e}")
-
-        # Fill Passport Number
-        try:
-            page.fill("#ctl00_ContentPlaceHolder1_txtPassportNumber", "112223", timeout=5000)
+            page.fill("#ctl00_ContentPlaceHolder1_txtPassportNo", "112223", timeout=5000)
             logger.info("Filled Passport Number by ID")
         except Exception as e:
             logger.warn(f"Could not fill Passport Number: {e}")
 
-        # Fill Proposed dates
+        # Fill Entry Date (correct field ID: txtEntryDate)
         try:
-            date_inputs = page.locator("input[name*='DateOfEntry']").all()
-            if date_inputs:
-                date_inputs[0].fill("01", timeout=5000)
-                if len(date_inputs) > 1:
-                    date_inputs[1].fill("03", timeout=5000)
-                if len(date_inputs) > 2:
-                    date_inputs[2].fill("2026", timeout=5000)
+            page.fill("#ctl00_ContentPlaceHolder1_txtEntryDate", "01/03/2026", timeout=5000)
+            logger.info("Filled Entry Date by ID")
         except Exception as e:
-            logger.warn(f"Could not fill From date: {e}")
+            logger.warn(f"Could not fill Entry Date: {e}")
 
+        # Fill Exit Date (correct field ID: txtExitDate)
         try:
-            date_inputs = page.locator("input[name*='DateOfExit']").all()
-            if date_inputs:
-                date_inputs[0].fill("08", timeout=5000)
-                if len(date_inputs) > 1:
-                    date_inputs[1].fill("03", timeout=5000)
-                if len(date_inputs) > 2:
-                    date_inputs[2].fill("2026", timeout=5000)
+            page.fill("#ctl00_ContentPlaceHolder1_txtExitDate", "08/03/2026", timeout=5000)
+            logger.info("Filled Exit Date by ID")
         except Exception as e:
-            logger.warn(f"Could not fill To date: {e}")
+            logger.warn(f"Could not fill Exit Date: {e}")
 
         logger.info("Page 1 filled")
 

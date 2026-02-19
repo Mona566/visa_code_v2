@@ -29,16 +29,18 @@ def fill_page_2(page: Page):
 
     try:
         page.wait_for_load_state("domcontentloaded")
-        time.sleep(1)
+        time.sleep(2)  # Wait for ASP.NET to fully load
 
-        # Check if form is already filled by looking at first name field
+        # Check if form is already filled by looking at surname field
         try:
-            surname_value = page.locator("#ctl00_ContentPlaceHolder1_txtSurname").input_value(timeout=3000)
-            if surname_value and len(surname_value.strip()) > 0:
-                logger.info("Form already filled - skipping fill operations")
-                return
-        except Exception:
-            pass
+            surname_locator = page.locator("#ctl00_ContentPlaceHolder1_txtSurname")
+            if surname_locator.count() > 0:
+                surname_value = surname_locator.first.input_value()
+                if surname_value and len(surname_value.strip()) > 0:
+                    logger.info(f"Form already filled with surname: {surname_value} - skipping fill operations")
+                    return
+        except Exception as e:
+            logger.info(f"Could not check if form is filled: {e}")
 
         # If not filled, try to fill fields
         logger.info("Form not filled - attempting to fill fields")
