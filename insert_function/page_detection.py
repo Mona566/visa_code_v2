@@ -797,17 +797,49 @@ def detect_page_number_no_refresh(browser, wait):
     """
     Detect the current page number (1-10) without refreshing the page.
     This is used to detect which page we're on after a refresh or navigation.
-    
+
     Args:
         browser: Selenium WebDriver instance
         wait: WebDriverWait instance
-    
+
     Returns:
         int: Page number (1-10) if detected, None if not on form page or cannot detect
     """
     try:
         current_url = browser.current_url
         log_operation("detect_page_number_no_refresh", "DEBUG", f"Current URL: {current_url}")
+
+        # First, try to detect page number from the page header (e.g., "Page 10" text)
+        # This is more reliable than content when the form updates the header but not content
+        try:
+            # Try to find page number in common header elements
+            import re
+
+            # Method 1: Look in the page source (HTML) which always has the page indicator
+            page_source = browser.page_source
+            page_match = re.search(r'Page\s+(\d+)', page_source, re.IGNORECASE)
+            if page_match:
+                header_page_num = int(page_match.group(1))
+                log_operation("detect_page_number_no_refresh", "INFO", f"Detected page number from page source: {header_page_num}")
+                if 1 <= header_page_num <= 10:
+                    log_operation("detect_page_number_no_refresh", "SUCCESS", f"Confirmed Page {header_page_num} by page source")
+                    return header_page_num
+            else:
+                log_operation("detect_page_number_no_refresh", "INFO", "No 'Page X' pattern found in page source")
+
+            # Method 2: Look for page indicator in specific elements
+            header_elements = browser.find_elements(By.XPATH, "//*[contains(@class, 'page') or contains(@class, 'step') or contains(@class, 'header')]//*[contains(text(), 'Page')]")
+            for elem in header_elements:
+                text = elem.text
+                page_match = re.search(r'Page\s+(\d+)', text, re.IGNORECASE)
+                if page_match:
+                    header_page_num = int(page_match.group(1))
+                    log_operation("detect_page_number_no_refresh", "INFO", f"Detected page number from header element: {header_page_num}")
+                    if 1 <= header_page_num <= 10:
+                        log_operation("detect_page_number_no_refresh", "SUCCESS", f"Confirmed Page {header_page_num} by header element")
+                        return header_page_num
+        except Exception as e:
+            log_operation("detect_page_number_no_refresh", "INFO", f"Could not detect page from header: {e}")
         
         # Check if on form page - accept all form page URLs (Pages 1-10)
         # Page 1: VisaTypeDetails.aspx
@@ -850,7 +882,18 @@ def detect_page_number_no_refresh(browser, wait):
             return None
         
         log_operation("detect_page_number_no_refresh", "DEBUG", "On form page, detecting page number...")
-        
+
+        # IMPORTANT: Page 9 and Page 10 both use StudentVisa.aspx URL
+        # Check for Page 10 (Declaration page) BEFORE Page 9 since it comes after Page 9
+        # Page 10 has declaration checkboxes and "Sign and Submit" button
+        page_source = browser.page_source
+        if ("Sign and Submit" in page_source or "sign and submit" in page_source.lower() or
+            "I declare that the information provided is true and correct" in page_source or
+            "I have read and understood the privacy policy" in page_source or
+            "documentation checklist has been completed" in page_source.lower()):
+            log_operation("detect_page_number_no_refresh", "SUCCESS", "Confirmed Page 10 (Declaration) by content")
+            return 10
+
         # Quick check: If URL contains FormAssistance.aspx, it's likely Page 10
         if "FormAssistance.aspx" in current_url:
             log_operation("detect_page_number_no_refresh", "INFO", "URL contains FormAssistance.aspx, likely Page 10")
@@ -864,16 +907,19 @@ def detect_page_number_no_refresh(browser, wait):
                 # Even if content check fails, if URL is FormAssistance.aspx, it's likely Page 10
                 log_operation("detect_page_number_no_refresh", "INFO", "URL is FormAssistance.aspx, assuming Page 10")
                 return 10
-        
-        # Quick check: If URL contains StudentVisa.aspx, it's likely Page 9
+
+        # Quick check: If URL contains StudentVisa.aspx, it's likely Page 9 (but verify it's NOT Page 10)
         if "StudentVisa.aspx" in current_url:
             log_operation("detect_page_number_no_refresh", "INFO", "URL contains StudentVisa.aspx, likely Page 9")
             # Verify by checking for Page 9 specific content
             try:
                 page_source = browser.page_source
+                # Page 9 has course details, Page 10 has declaration checkboxes
                 if "Have you been accepted on a course of study" in page_source or "Course of Study in Ireland" in page_source or "Name of College" in page_source:
-                    log_operation("detect_page_number_no_refresh", "SUCCESS", "Confirmed Page 9 by URL and content")
-                    return 9
+                    # Make sure it's not Page 10 (Declaration page)
+                    if not ("Sign and Submit" in page_source or "I declare that the information provided is true and correct" in page_source):
+                        log_operation("detect_page_number_no_refresh", "SUCCESS", "Confirmed Page 9 by URL and content")
+                        return 9
             except:
                 # Even if content check fails, if URL is StudentVisa.aspx, it's likely Page 9
                 log_operation("detect_page_number_no_refresh", "INFO", "URL is StudentVisa.aspx, assuming Page 9")
@@ -1622,6 +1668,10 @@ def click_next_button(browser, wait):
         next_selectors = [
             (By.ID, "ctl00_ButtonBar_btnSaveContinue"),  # Primary button ID from page source
             (By.ID, "ctl00_ContentPlaceHolder1_btnSaveContinue"),
+            # Sign and Submit button for Page 10 (Declaration page)
+            (By.XPATH, "//input[@type='submit' and (contains(@value, 'Sign and Submit') or contains(@value, 'sign and submit') or contains(@value, 'Sign & Submit'))]"),
+            (By.XPATH, "//input[@type='button' and (contains(@value, 'Sign and Submit') or contains(@value, 'sign and submit') or contains(@value, 'Sign & Submit'))]"),
+            (By.XPATH, "//button[contains(text(), 'Sign and Submit') or contains(text(), 'sign and submit') or contains(text(), 'Sign & Submit')]"),
             (By.XPATH, "//input[@type='submit' and (contains(@value, 'Save and Continue') or contains(@value, 'save and continue') or contains(@value, 'Save & Continue'))]"),
             (By.XPATH, "//input[@type='button' and (contains(@value, 'Save and Continue') or contains(@value, 'save and continue') or contains(@value, 'Save & Continue'))]"),
             (By.XPATH, "//button[contains(text(), 'Save and Continue') or contains(text(), 'save and continue') or contains(text(), 'Save & Continue')]"),
@@ -1639,7 +1689,7 @@ def click_next_button(browser, wait):
         for by, selector in next_selectors:
             try:
                 next_button = extended_wait.until(EC.element_to_be_clickable((by, selector)))
-                log_operation("click_next_button", "SUCCESS", f"Found 'Save and Continue' button: {by}={selector}")
+                log_operation("click_next_button", "SUCCESS", f"Found button: {by}={selector}")
                 break
             except (TimeoutException, NoSuchElementException):
                 continue
