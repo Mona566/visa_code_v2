@@ -11,7 +11,7 @@ import re
 # 导入工具函数
 from .utils import (
     OPERATION_DELAY, POSTBACK_DELAY, POSTBACK_WAIT_DELAY, POSTBACK_BETWEEN_DELAY,
-    log_operation, verify_page_state, safe_postback_operation
+    log_operation, verify_page_state, safe_postback_operation, take_screenshot
 )
 from .page_detection import (
     check_homepage_redirect, check_and_handle_error_page,
@@ -26,14 +26,14 @@ from .application_management import (
     extract_application_number, save_application_number
 )
 
-def fill_page_10(browser, wait):
+def fill_page_10(browser, wait, screenshots_dir=None):
     """
     Fill the tenth page of the application form
     
     Fields to fill:
     - Did you receive any assistance in completing this form from an agent/agency?: No
     
-    Then click "Save and Continue" button
+    Then click "Sign and Submit" button
     """
     log_operation("fill_page_10", "INFO", "Starting to fill Page 10...")
     
@@ -109,175 +109,94 @@ def fill_page_10(browser, wait):
                 log_operation(f"fill_page_10", "WARN", f"Error filling {field_id}: {e}")
                 return False
         
-        # ===== MANDATORY FIELDS =====
-        # Did you receive any assistance in completing this form from an agent/agency? * (MANDATORY)
+        # ===== MANDATORY FIELDS ON DECLARATION PAGE =====
+        # Page 10 is the Declaration page with checkboxes
+        # The checkboxes are:
+        # - I declare that the information provided is true and correct
+        # - I have read and understood the privacy policy
+        # - I confirm that the documentation checklist has been completed
+        # - I understand that my supporting documents must be forwarded to the relevant office within 5 days
+
+        # Find and check all declaration checkboxes
         try:
-            redirect_check = check_homepage_redirect(browser, wait)
-            if redirect_check == "homepage":
-                return "homepage_redirect"
-            
-            log_operation("Assistance from agent/agency", "INFO", "Selecting 'No' for assistance from agent/agency (MANDATORY)...")
-            
-            # Try multiple strategies to find and select "No" radio button
-            # Note: Actual field ID is rdblstAgency, not rdblstAssistance
-            assistance_filled = False
-            assistance_selectors = [
-                ("id", "ctl00_ContentPlaceHolder1_rdblstAgency_1"),  # No option (index 1) - CORRECT ID
-                ("id", "ctl00_ContentPlaceHolder1_rdblstAssistance_1"),  # Alternative ID pattern
-                ("id", "ctl00_ContentPlaceHolder1_rdblstAgent_1"),  # Alternative ID pattern
-                ("xpath", "//input[@type='radio' and contains(@id, 'Agency') and contains(@id, '_1')]"),
-                ("xpath", "//input[@type='radio' and contains(@id, 'Assistance') and contains(@id, '_1')]"),
-                ("xpath", "//input[@type='radio' and contains(@id, 'Agent') and contains(@id, '_1')]"),
-                ("label", "Did you receive any assistance"),
+            log_operation("Declaration checkboxes", "INFO", "Looking for declaration checkboxes...")
+
+            # Try multiple selectors for declaration checkboxes
+            declaration_checkboxes = []
+            checkbox_selectors = [
+                # Common patterns for declaration checkboxes
+                "//input[@type='checkbox' and contains(@id, 'Declaration')]",
+                "//input[@type='checkbox' and contains(@id, 'CheckBox')]",
+                "//input[@type='checkbox' and contains(@id, 'chk')]",
+                "//input[@type='checkbox'][contains(@id, 'ContentPlaceHolder1')]",
             ]
-            
-            for strategy, selector in assistance_selectors:
+
+            for selector in checkbox_selectors:
                 try:
-                    if strategy == "id":
-                        # Use direct element manipulation for radio buttons to ensure click works
-                        element = extended_wait.until(EC.presence_of_element_located((By.ID, selector)))
-                        browser.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
-                        time.sleep(0.5)
-                        
-                        # Check if already selected
-                        if element.is_selected():
-                            log_operation("Assistance from agent/agency", "INFO", f"Radio {selector} already selected, skipping...")
-                            assistance_filled = True
-                            break
-                        
-                        # Try JavaScript click first (more reliable for radio buttons with PostBack)
-                        try:
-                            browser.execute_script("arguments[0].click();", element)
-                            time.sleep(0.5)
-                            # Verify the click worked
-                            if element.is_selected():
-                                assistance_filled = True
-                                log_operation("Assistance from agent/agency", "SUCCESS", f"Filled using ID (JavaScript click): {selector}")
-                                break
-                            else:
-                                # If JavaScript click didn't work, try regular click
-                                element.click()
-                                time.sleep(0.5)
-                                if element.is_selected():
-                                    assistance_filled = True
-                                    log_operation("Assistance from agent/agency", "SUCCESS", f"Filled using ID (regular click): {selector}")
-                                    break
-                        except Exception as click_error:
-                            log_operation("Assistance from agent/agency", "DEBUG", f"JavaScript click failed: {click_error}, trying regular click...")
-                            element.click()
-                            time.sleep(0.5)
-                            if element.is_selected():
-                                assistance_filled = True
-                                log_operation("Assistance from agent/agency", "SUCCESS", f"Filled using ID (fallback click): {selector}")
-                                break
-                        
-                        # If we reach here, click didn't work
-                        log_operation("Assistance from agent/agency", "DEBUG", f"Click on {selector} did not select the radio button, trying next strategy...")
-                        continue
-                    elif strategy == "xpath":
-                        element = extended_wait.until(EC.presence_of_element_located((By.XPATH, selector)))
-                        browser.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
-                        time.sleep(0.5)
-                        
-                        # Check if already selected
-                        if element.is_selected():
-                            log_operation("Assistance from agent/agency", "INFO", f"Radio (XPath) already selected, skipping...")
-                            assistance_filled = True
-                            break
-                        
-                        # Try JavaScript click first
-                        try:
-                            browser.execute_script("arguments[0].click();", element)
-                            time.sleep(0.5)
-                            if element.is_selected():
-                                assistance_filled = True
-                                log_operation("Assistance from agent/agency", "SUCCESS", f"Filled using XPath (JavaScript click): {selector}")
-                                break
-                            else:
-                                element.click()
-                                time.sleep(0.5)
-                                if element.is_selected():
-                                    assistance_filled = True
-                                    log_operation("Assistance from agent/agency", "SUCCESS", f"Filled using XPath (regular click): {selector}")
-                                    break
-                        except Exception as click_error:
-                            log_operation("Assistance from agent/agency", "DEBUG", f"XPath click failed: {click_error}")
-                            continue
-                    else:  # label
-                        # Try to find label and then find associated radio button
-                        labels = browser.find_elements(By.XPATH, f"//label[contains(text(), '{selector}')]")
-                        if labels:
-                            for label in labels:
-                                # Try to find associated input by 'for' attribute
-                                label_for = label.get_attribute("for")
-                                if label_for:
-                                    try:
-                                        radio = browser.find_element(By.ID, label_for)
-                                        if radio.get_attribute("type") == "radio" and radio.get_attribute("value") == "No":
-                                            browser.execute_script("arguments[0].scrollIntoView({block: 'center'});", radio)
-                                            time.sleep(0.3)
-                                            if not radio.is_selected():
-                                                radio.click()
-                                                assistance_filled = True
-                                                log_operation("Assistance from agent/agency", "SUCCESS", f"Filled using label: {selector}")
-                                                break
-                                    except:
-                                        continue
-                                # If no 'for' attribute, try to find radio in same row
-                                try:
-                                    row = label.find_element(By.XPATH, "./ancestor::tr")
-                                    radios = row.find_elements(By.XPATH, ".//input[@type='radio']")
-                                    for radio in radios:
-                                        radio_id = radio.get_attribute("id")
-                                        radio_value = radio.get_attribute("value")
-                                        # Check if this is the "No" option (index 1 or value 0)
-                                        # From debug: rdblstAgency_0 (Yes, value=1), rdblstAgency_1 (No, value=0)
-                                        if radio_id and "_1" in radio_id and ("Agency" in radio_id or "Assistance" in radio_id or "Agent" in radio_id):
-                                            browser.execute_script("arguments[0].scrollIntoView({block: 'center'});", radio)
-                                            time.sleep(0.5)
-                                            if not radio.is_selected():
-                                                # Try JavaScript click first
-                                                try:
-                                                    browser.execute_script("arguments[0].click();", radio)
-                                                    time.sleep(0.5)
-                                                    if radio.is_selected():
-                                                        assistance_filled = True
-                                                        log_operation("Assistance from agent/agency", "SUCCESS", f"Filled using label (JavaScript click): {selector}, radio ID: {radio_id}")
-                                                        break
-                                                    else:
-                                                        radio.click()
-                                                        time.sleep(0.5)
-                                                        if radio.is_selected():
-                                                            assistance_filled = True
-                                                            log_operation("Assistance from agent/agency", "SUCCESS", f"Filled using label (regular click): {selector}, radio ID: {radio_id}")
-                                                            break
-                                                except Exception as click_error:
-                                                    log_operation("Assistance from agent/agency", "DEBUG", f"Label click failed: {click_error}")
-                                                    continue
-                                            else:
-                                                assistance_filled = True
-                                                log_operation("Assistance from agent/agency", "INFO", f"Radio already selected via label: {radio_id}")
-                                                break
-                                    if assistance_filled:
-                                        break
-                                except:
-                                    continue
-                        if assistance_filled:
-                            break
+                    checkboxes = browser.find_elements(By.XPATH, selector)
+                    if checkboxes:
+                        declaration_checkboxes.extend(checkboxes)
+                        log_operation("Declaration checkboxes", "INFO", f"Found {len(checkboxes)} checkboxes using selector: {selector}")
                 except Exception as e:
-                    log_operation("Assistance from agent/agency", "DEBUG", f"Strategy {strategy} failed: {e}")
+                    log_operation("Declaration checkboxes", "DEBUG", f"Selector {selector} failed: {e}")
                     continue
-            
-            if not assistance_filled:
-                log_operation("Assistance from agent/agency", "WARN", "Could not fill assistance field using any strategy")
-            
-            time.sleep(OPERATION_DELAY)
-            
-            redirect_check = check_homepage_redirect(browser, wait)
-            if redirect_check == "homepage":
-                return "homepage_redirect"
+
+            # Also try to find checkboxes by label text
+            label_keywords = [
+                "declare that the information provided is true",
+                "read and understood the privacy policy",
+                "documentation checklist has been completed",
+                "supporting documents must be forwarded"
+            ]
+
+            for keyword in label_keywords:
+                try:
+                    labels = browser.find_elements(By.XPATH, f"//label[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{keyword}')]")
+                    for label in labels:
+                        try:
+                            # Try to find checkbox by 'for' attribute
+                            label_for = label.get_attribute("for")
+                            if label_for:
+                                checkbox = browser.find_element(By.ID, label_for)
+                                if checkbox not in declaration_checkboxes:
+                                    declaration_checkboxes.append(checkbox)
+                        except:
+                            pass
+                        try:
+                            # Try to find checkbox in same row
+                            checkbox = label.find_element(By.XPATH, ".//preceding::input[@type='checkbox'][1]")
+                            if checkbox not in declaration_checkboxes:
+                                declaration_checkboxes.append(checkbox)
+                        except:
+                            pass
+                except:
+                    continue
+
+            # Check each checkbox
+            checked_count = 0
+            for checkbox in declaration_checkboxes:
+                try:
+                    if not checkbox.is_selected():
+                        browser.execute_script("arguments[0].scrollIntoView({block: 'center'});", checkbox)
+                        time.sleep(0.3)
+                        browser.execute_script("arguments[0].click();", checkbox)
+                        time.sleep(0.3)
+                        if checkbox.is_selected():
+                            checked_count += 1
+                            log_operation("Declaration checkboxes", "SUCCESS", f"Checked checkbox")
+                    else:
+                        checked_count += 1
+                        log_operation("Declaration checkboxes", "INFO", "Checkbox already checked")
+                except Exception as e:
+                    log_operation("Declaration checkboxes", "WARN", f"Error checking checkbox: {e}")
+
+            if checked_count > 0:
+                log_operation("Declaration checkboxes", "SUCCESS", f"Checked {checked_count} declaration checkboxes")
+            else:
+                log_operation("Declaration checkboxes", "WARN", "No checkboxes found to check")
+
         except Exception as e:
-            log_operation("Assistance from agent/agency", "WARN", f"Error: {e}")
+            log_operation("Declaration checkboxes", "WARN", f"Error: {e}")
         
         # Check for error page
         error_result = check_and_handle_error_page(browser, wait)
@@ -292,12 +211,12 @@ def fill_page_10(browser, wait):
             return "homepage_redirect"
         
         # Verify page state before clicking button
-        log_operation("fill_page_10", "INFO", "Verifying page state before clicking 'Save and Continue' button...")
+        log_operation("fill_page_10", "INFO", "Verifying page state before clicking 'Sign and Submit' button...")
         try:
             # Check if page is ready
             ready_state = browser.execute_script("return document.readyState")
             if ready_state == "complete":
-                log_operation("fill_page_10", "INFO", "Page state verified, proceeding to click 'Save and Continue' button...")
+                log_operation("fill_page_10", "INFO", "Page state verified, proceeding to click 'Sign and Submit' button...")
             else:
                 log_operation("fill_page_10", "WARN", "Page state verification failed, but proceeding to click button...")
         except Exception as e:
@@ -309,7 +228,9 @@ def fill_page_10(browser, wait):
             log_operation("fill_page_10", "WARN", "Redirected to homepage just before clicking button, stopping...")
             return "homepage_redirect"
         
-        # Click Save and Continue button to go to next page
+        # Click Sign and Submit button to go to next page
+        if screenshots_dir:
+            take_screenshot(browser, f"page_10_filled", output_dir=screenshots_dir)
         button_result = click_next_button(browser, wait)
         
         # Check if button click resulted in homepage redirect
@@ -351,7 +272,7 @@ def fill_page_10(browser, wait):
                 return "same_page"
         
         # After clicking Save and Continue button, wait for page to load
-        log_operation("fill_page_10", "INFO", "Waiting for page to load after clicking 'Save and Continue'...")
+        log_operation("fill_page_10", "INFO", "Waiting for page to load after clicking 'Sign and Submit'...")
         time.sleep(3)  # Wait for page to load after navigation
         wait.until(lambda driver: driver.execute_script("return document.readyState") == "complete")
         time.sleep(2)

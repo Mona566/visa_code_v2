@@ -10,7 +10,7 @@ import time
 # 导入所有需要的函数
 from .utils import (
     OPERATION_DELAY, POSTBACK_DELAY, POSTBACK_WAIT_DELAY, POSTBACK_BETWEEN_DELAY,
-    log_operation
+    log_operation, take_screenshot
 )
 from .page_detection import (
     check_and_handle_error_page, handle_intermediate_page,
@@ -24,9 +24,164 @@ from .page_fillers import (
     fill_page_6, fill_page_7, fill_page_8, fill_page_9, fill_page_10
 )
 
+def initialize_form_session(browser, wait):
+    """
+    Navigate through the INIS homepage and privacy statement to reach the form entry page.
+
+    This must be called before fill_page_1(). It handles:
+      1. OnlineHome.aspx  → click "Continue"
+      2. OnlineHome2.aspx → check privacy checkbox + click submit
+      3. Wait for VisaTypeDetails.aspx
+
+    Args:
+        browser: Selenium WebDriver instance (already open)
+        wait:    WebDriverWait instance
+
+    Returns:
+        bool: True if the browser is now on VisaTypeDetails.aspx, False otherwise.
+    """
+    homepage_url = "https://www.visas.inis.gov.ie/AVATS/OnlineHome.aspx"
+
+    try:
+        # Navigate to homepage if not already there
+        current_url = browser.current_url
+        if "OnlineHome.aspx" not in current_url:
+            log_operation("initialize_form_session", "INFO", f"Navigating to homepage: {homepage_url}")
+            browser.get(homepage_url)
+            time.sleep(3)
+            wait.until(lambda d: d.execute_script("return document.readyState") == "complete")
+
+        # ── Step 1: Click "Continue" on OnlineHome.aspx ──────────────────────
+        log_operation("initialize_form_session", "INFO", "Looking for Continue button...")
+        continue_selectors = [
+            (By.ID, "ctl00_ContentPlaceHolder1_applyNow"),
+            (By.XPATH, "//input[@type='submit' and @value='Continue']"),
+            (By.XPATH, "//input[@type='button' and @value='Continue']"),
+            (By.XPATH, "//button[contains(text(), 'Continue')]"),
+            (By.XPATH, "//a[contains(text(), 'Continue')]"),
+            (By.CSS_SELECTOR, "input[value='Continue']"),
+        ]
+        continue_button = None
+        for by, selector in continue_selectors:
+            try:
+                continue_button = wait.until(EC.element_to_be_clickable((by, selector)))
+                log_operation("initialize_form_session", "SUCCESS", f"Found Continue button: {by}={selector}")
+                break
+            except (TimeoutException, NoSuchElementException):
+                continue
+
+        if not continue_button:
+            log_operation("initialize_form_session", "ERROR", "Continue button not found on homepage")
+            return False
+
+        browser.execute_script("arguments[0].scrollIntoView({block: 'center'});", continue_button)
+        time.sleep(0.5)
+        try:
+            continue_button.click()
+        except Exception:
+            browser.execute_script("arguments[0].click();", continue_button)
+        log_operation("initialize_form_session", "INFO", "Clicked Continue, waiting for OnlineHome2.aspx...")
+
+        # Wait for intermediate page (OnlineHome2.aspx)
+        try:
+            wait.until(lambda d: "OnlineHome2.aspx" in d.current_url or "VisaTypeDetails.aspx" in d.current_url)
+        except TimeoutException:
+            pass
+        time.sleep(2)
+
+        # If already on form page, we're done
+        if "VisaTypeDetails.aspx" in browser.current_url:
+            log_operation("initialize_form_session", "SUCCESS", "Reached form page directly")
+            return True
+
+        # ── Step 2: Privacy checkbox + submit on OnlineHome2.aspx ────────────
+        wait.until(lambda d: d.execute_script("return document.readyState") == "complete")
+        log_operation("initialize_form_session", "INFO", "On OnlineHome2.aspx — looking for privacy checkbox...")
+
+        privacy_checkbox = None
+        privacy_selectors = [
+            (By.ID, "ctl00_ContentPlaceHolder1_CheckBoxRead"),
+            (By.XPATH, "//input[@type='checkbox' and contains(@id, 'CheckBoxRead')]"),
+            (By.XPATH, "//label[contains(text(), 'I acknowledge that I have read and understood')]//preceding::input[@type='checkbox'][1]"),
+            (By.XPATH, "//label[contains(text(), 'I acknowledge')]//following::input[@type='checkbox'][1]"),
+        ]
+        for by, selector in privacy_selectors:
+            try:
+                privacy_checkbox = browser.find_element(by, selector)
+                if privacy_checkbox.is_displayed():
+                    log_operation("initialize_form_session", "SUCCESS", f"Found privacy checkbox: {by}={selector}")
+                    break
+            except NoSuchElementException:
+                continue
+
+        if privacy_checkbox:
+            browser.execute_script("arguments[0].scrollIntoView({block: 'center'});", privacy_checkbox)
+            time.sleep(0.5)
+            if not privacy_checkbox.is_selected():
+                privacy_checkbox.click()
+                log_operation("initialize_form_session", "SUCCESS", "Privacy checkbox checked")
+            else:
+                log_operation("initialize_form_session", "INFO", "Privacy checkbox already checked")
+            time.sleep(1)
+        else:
+            log_operation("initialize_form_session", "WARN", "Privacy checkbox not found — continuing anyway")
+
+        # Find and click the submit button (use a short 3s wait per selector to fail fast)
+        short_wait = WebDriverWait(browser, 3)
+        submit_selectors = [
+            (By.ID, "ctl00_ContentPlaceHolder1_btnSave"),
+            (By.ID, "ctl00_ContentPlaceHolder1_btnContinue"),
+            (By.ID, "ctl00_MainContent_btnContinue"),
+            (By.XPATH, "//input[@type='submit']"),
+            (By.XPATH, "//input[@type='submit' and contains(@value, 'Continue')]"),
+            (By.XPATH, "//input[@type='submit' and contains(@value, 'Save and Continue')]"),
+            (By.XPATH, "//input[@type='button' and contains(@value, 'Continue')]"),
+            (By.XPATH, "//button[contains(text(), 'Continue')]"),
+        ]
+        submit_button = None
+        for by, selector in submit_selectors:
+            try:
+                submit_button = short_wait.until(EC.element_to_be_clickable((by, selector)))
+                log_operation("initialize_form_session", "SUCCESS", f"Found submit button: {by}={selector}")
+                break
+            except (TimeoutException, NoSuchElementException):
+                continue
+
+        if not submit_button:
+            log_operation("initialize_form_session", "ERROR", "Submit button not found on privacy page")
+            return False
+
+        browser.execute_script("arguments[0].scrollIntoView({block: 'center'});", submit_button)
+        time.sleep(0.5)
+        try:
+            submit_button.click()
+        except Exception:
+            browser.execute_script("arguments[0].click();", submit_button)
+        log_operation("initialize_form_session", "INFO", "Clicked submit, waiting for form page...")
+
+        # Wait for form page
+        try:
+            wait.until(lambda d: "VisaTypeDetails.aspx" in d.current_url)
+        except TimeoutException:
+            pass
+        time.sleep(2)
+        wait.until(lambda d: d.execute_script("return document.readyState") == "complete")
+
+        if "VisaTypeDetails.aspx" in browser.current_url:
+            log_operation("initialize_form_session", "SUCCESS", f"Session initialized — on form page: {browser.current_url}")
+            return True
+
+        log_operation("initialize_form_session", "ERROR", f"Unexpected URL after initialization: {browser.current_url}")
+        return False
+
+    except Exception as e:
+        log_operation("initialize_form_session", "ERROR", f"Exception during initialization: {str(e)[:300]}")
+        return False
+
+
 def auto_fill_inis_form():
     """
-    Automatically open the Irish visa application webpage, click continue and agree buttons, 
+    Automatically open the Irish visa application webpage, click continue and agree buttons,
     and enter the application form page
     """
     # Keep the browser window open
@@ -1455,14 +1610,22 @@ def auto_fill_inis_form():
 
 
 
-def fill_application_form(browser, wait):
+def fill_application_form(browser, wait, enable_screenshots=False, screenshots_dir="screenshots"):
     """
     Automatically fill the visa application form page by page
-    
+
     Args:
         browser: Selenium WebDriver instance
         wait: WebDriverWait instance
+        enable_screenshots: If True, take a screenshot after each page fill.
+                            Screenshots are saved to screenshots_dir and named
+                            page_N_after_fill_YYYYMMDD_HHMMSS.png.
+        screenshots_dir: Directory where screenshots are saved (default: "screenshots").
     """
+    def _screenshot(label):
+        if enable_screenshots:
+            take_screenshot(browser, label, output_dir=screenshots_dir)
+
     try:
         print("\n" + "="*60)
         print("Starting form filling process...")
@@ -1478,13 +1641,13 @@ def fill_application_form(browser, wait):
                 log_operation("fill_application_form", "INFO", f"Found Application Number: {saved_app_number}, retrieving application instead of clicking Continue...")
                 if retrieve_application(browser, wait, saved_app_number):
                     log_operation("fill_application_form", "SUCCESS", "Successfully retrieved application, re-starting form filling process...")
-                    return fill_application_form(browser, wait)
+                    return fill_application_form(browser, wait, enable_screenshots, screenshots_dir)
                 else:
                     log_operation("fill_application_form", "WARN", "Failed to retrieve application, trying restart_from_homepage...")
             # If no Application Number or retrieval failed, use restart_from_homepage
             if restart_from_homepage(browser, wait):
                 log_operation("fill_application_form", "INFO", "Successfully restarted from homepage, re-starting form filling process...")
-                return fill_application_form(browser, wait)
+                return fill_application_form(browser, wait, enable_screenshots, screenshots_dir)
             else:
                 log_operation("fill_application_form", "ERROR", "Failed to restart from homepage")
                 return
@@ -1719,8 +1882,8 @@ def fill_application_form(browser, wait):
             pass
         
         # Fill Page 1
-        page_1_result = fill_page_1(browser, wait)
-        
+        page_1_result = fill_page_1(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
+
         # Check for application error - stop all page filling immediately
         if page_1_result == "application_error":
             log_operation("fill_application_form", "ERROR", "Application error detected on Page 1 - stopping all page filling immediately!")
@@ -1736,7 +1899,7 @@ def fill_application_form(browser, wait):
                 log_operation("fill_application_form", "INFO", f"Found Application Number: {saved_app_number}, retrieving application...")
                 if retrieve_application(browser, wait, saved_app_number):
                     log_operation("fill_application_form", "SUCCESS", "Successfully retrieved application, re-starting form filling process...")
-                    return fill_application_form(browser, wait)
+                    return fill_application_form(browser, wait, enable_screenshots, screenshots_dir)
                 else:
                     log_operation("fill_application_form", "WARN", "Failed to retrieve application, trying restart_from_homepage...")
             # If no Application Number or retrieval failed, use restart_from_homepage
@@ -1744,7 +1907,7 @@ def fill_application_form(browser, wait):
             if restart_from_homepage(browser, wait):
                 log_operation("fill_application_form", "INFO", "Successfully restarted from homepage, re-starting form filling process...")
                 # Recursively call fill_application_form to restart the entire process
-                return fill_application_form(browser, wait)
+                return fill_application_form(browser, wait, enable_screenshots, screenshots_dir)
             else:
                 log_operation("fill_application_form", "ERROR", "Failed to restart from homepage, stopping form filling")
                 return
@@ -1797,7 +1960,7 @@ def fill_application_form(browser, wait):
                     # Check for homepage redirect
                     if result == "homepage_redirect" or (isinstance(result, str) and "homepage_redirect" in result):
                         if restart_from_homepage(browser, wait):
-                            return fill_application_form(browser, wait)
+                            return fill_application_form(browser, wait, enable_screenshots, screenshots_dir)
                         return
                     
                     # Check for page jump
@@ -1837,8 +2000,8 @@ def fill_application_form(browser, wait):
         time.sleep(2)
         
         # Fill Page 2 and check result
-        page_2_result = fill_page_2(browser, wait)
-        
+        page_2_result = fill_page_2(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
+
         # Check for application error - stop all page filling immediately
         if page_2_result == "application_error":
             log_operation("fill_application_form", "ERROR", "Application error detected on Page 2 - stopping all page filling immediately!")
@@ -1891,7 +2054,7 @@ def fill_application_form(browser, wait):
                     # Check for homepage redirect
                     if result == "homepage_redirect" or (isinstance(result, str) and "homepage_redirect" in result):
                         if restart_from_homepage(browser, wait):
-                            return fill_application_form(browser, wait)
+                            return fill_application_form(browser, wait, enable_screenshots, screenshots_dir)
                         return
                     
                     # Check for page jump
@@ -1931,7 +2094,7 @@ def fill_application_form(browser, wait):
             log_operation("fill_application_form", "WARN", f"Page 2 returned: {page_2_result}, stopping all page filling and handling redirect...")
             if "homepage_redirect" in str(page_2_result):
                 if restart_from_homepage(browser, wait):
-                    return fill_application_form(browser, wait)
+                    return fill_application_form(browser, wait, enable_screenshots, screenshots_dir)
                 else:
                     log_operation("fill_application_form", "ERROR", "Failed to restart from homepage after page 2")
                     return
@@ -1942,31 +2105,31 @@ def fill_application_form(browser, wait):
                 if page_num >= 3:
                     # Continue to page 3
                     time.sleep(2)
-                    page_3_result = fill_page_3(browser, wait)
+                    page_3_result = fill_page_3(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
                     if page_3_result and ("homepage_redirect" in str(page_3_result) or "form_page_" in str(page_3_result)):
                         # Handle page 3 redirect
                         if "homepage_redirect" in str(page_3_result):
                             if restart_from_homepage(browser, wait):
-                                return fill_application_form(browser, wait)
+                                return fill_application_form(browser, wait, enable_screenshots, screenshots_dir)
                             return
                         elif "form_page_" in str(page_3_result):
                             page_num_3 = int(str(page_3_result).split("_")[-1])
                             if page_num_3 >= 4:
                                 time.sleep(2)
-                                fill_page_4(browser, wait)
-                    return
+                                fill_page_4(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
+                                return
                 elif page_num >= 4:
                     # Skip to page 4
                     time.sleep(2)
-                    fill_page_4(browser, wait)
+                    fill_page_4(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
                     return
         
         # Wait a bit after page 2 navigation
         time.sleep(2)
         
         # Fill Page 3
-        page_3_result = fill_page_3(browser, wait)
-        
+        page_3_result = fill_page_3(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
+
         # Check for application error - stop all page filling immediately
         if page_3_result == "application_error":
             log_operation("fill_application_form", "ERROR", "Application error detected on Page 3 - stopping all page filling immediately!")
@@ -1977,7 +2140,7 @@ def fill_application_form(browser, wait):
             log_operation("fill_application_form", "WARN", f"Page 3 returned: {page_3_result}, stopping all page filling and handling redirect...")
             if "homepage_redirect" in str(page_3_result):
                 if restart_from_homepage(browser, wait):
-                    return fill_application_form(browser, wait)
+                    return fill_application_form(browser, wait, enable_screenshots, screenshots_dir)
                 else:
                     log_operation("fill_application_form", "ERROR", "Failed to restart from homepage after page 3")
                     return
@@ -1988,15 +2151,15 @@ def fill_application_form(browser, wait):
                 if page_num >= 4:
                     # Skip to page 4
                     time.sleep(2)
-                    fill_page_4(browser, wait)
+                    fill_page_4(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
                     return
-        
+
         # Wait a bit after page 3 navigation
         time.sleep(2)
         
         # Fill Page 4
-        page_4_result = fill_page_4(browser, wait)
-        
+        page_4_result = fill_page_4(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
+
         # Check for application error - stop all page filling immediately
         if page_4_result == "application_error":
             log_operation("fill_application_form", "ERROR", "Application error detected on Page 4 - stopping all page filling immediately!")
@@ -2007,7 +2170,7 @@ def fill_application_form(browser, wait):
             log_operation("fill_application_form", "WARN", f"Page 4 returned: {page_4_result}, stopping all page filling and handling redirect...")
             if "homepage_redirect" in str(page_4_result):
                 if restart_from_homepage(browser, wait):
-                    return fill_application_form(browser, wait)
+                    return fill_application_form(browser, wait, enable_screenshots, screenshots_dir)
                 else:
                     log_operation("fill_application_form", "ERROR", "Failed to restart from homepage after page 4")
                     return
@@ -2016,8 +2179,8 @@ def fill_application_form(browser, wait):
         time.sleep(2)
         
         # Fill Page 5
-        page_5_result = fill_page_5(browser, wait)
-        
+        page_5_result = fill_page_5(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
+
         # Check for application error - stop all page filling immediately
         if page_5_result == "application_error":
             log_operation("fill_application_form", "ERROR", "Application error detected on Page 5 - stopping all page filling immediately!")
@@ -2028,7 +2191,7 @@ def fill_application_form(browser, wait):
             log_operation("fill_application_form", "WARN", f"Page 5 returned: {page_5_result}, stopping all page filling and handling redirect...")
             if "homepage_redirect" in str(page_5_result):
                 if restart_from_homepage(browser, wait):
-                    return fill_application_form(browser, wait)
+                    return fill_application_form(browser, wait, enable_screenshots, screenshots_dir)
                 else:
                     log_operation("fill_application_form", "ERROR", "Failed to restart from homepage after page 5")
                     return
@@ -2037,8 +2200,8 @@ def fill_application_form(browser, wait):
         time.sleep(2)
         
         # Fill Page 6
-        page_6_result = fill_page_6(browser, wait)
-        
+        page_6_result = fill_page_6(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
+
         # Check for application error - stop all page filling immediately
         if page_6_result == "application_error":
             log_operation("fill_application_form", "ERROR", "Application error detected on Page 6 - stopping all page filling immediately!")
@@ -2049,7 +2212,7 @@ def fill_application_form(browser, wait):
             log_operation("fill_application_form", "WARN", f"Page 6 returned: {page_6_result}, stopping all page filling and handling redirect...")
             if "homepage_redirect" in str(page_6_result):
                 if restart_from_homepage(browser, wait):
-                    return fill_application_form(browser, wait)
+                    return fill_application_form(browser, wait, enable_screenshots, screenshots_dir)
                 else:
                     log_operation("fill_application_form", "ERROR", "Failed to restart from homepage after page 6")
                     return
@@ -2058,8 +2221,8 @@ def fill_application_form(browser, wait):
         time.sleep(2)
         
         # Fill Page 7
-        page_7_result = fill_page_7(browser, wait)
-        
+        page_7_result = fill_page_7(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
+
         # Check for application error - stop all page filling immediately
         if page_7_result == "application_error":
             log_operation("fill_application_form", "ERROR", "Application error detected on Page 7 - stopping all page filling immediately!")
@@ -2070,7 +2233,7 @@ def fill_application_form(browser, wait):
             log_operation("fill_application_form", "WARN", f"Page 7 returned: {page_7_result}, stopping all page filling and handling redirect...")
             if "homepage_redirect" in str(page_7_result):
                 if restart_from_homepage(browser, wait):
-                    return fill_application_form(browser, wait)
+                    return fill_application_form(browser, wait, enable_screenshots, screenshots_dir)
                 else:
                     log_operation("fill_application_form", "ERROR", "Failed to restart from homepage after page 7")
                     return
@@ -2079,8 +2242,8 @@ def fill_application_form(browser, wait):
         time.sleep(2)
         
         # Fill Page 8
-        page_8_result = fill_page_8(browser, wait)
-        
+        page_8_result = fill_page_8(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
+
         # Check for application error - stop all page filling immediately
         if page_8_result == "application_error":
             log_operation("fill_application_form", "ERROR", "Application error detected on Page 8 - stopping all page filling immediately!")
@@ -2091,7 +2254,7 @@ def fill_application_form(browser, wait):
             log_operation("fill_application_form", "WARN", f"Page 8 returned: {page_8_result}, stopping all page filling and handling redirect...")
             if "homepage_redirect" in str(page_8_result):
                 if restart_from_homepage(browser, wait):
-                    return fill_application_form(browser, wait)
+                    return fill_application_form(browser, wait, enable_screenshots, screenshots_dir)
                 else:
                     log_operation("fill_application_form", "ERROR", "Failed to restart from homepage after page 8")
                     return
@@ -2100,8 +2263,8 @@ def fill_application_form(browser, wait):
         time.sleep(2)
         
         # Fill Page 9
-        page_9_result = fill_page_9(browser, wait)
-        
+        page_9_result = fill_page_9(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
+
         # Check for application error - stop all page filling immediately
         if page_9_result == "application_error":
             log_operation("fill_application_form", "ERROR", "Application error detected on Page 9 - stopping all page filling immediately!")
@@ -2117,12 +2280,12 @@ def fill_application_form(browser, wait):
                     log_operation("fill_application_form", "INFO", f"Found Application Number: {saved_app_number}, retrieving application...")
                     if retrieve_application(browser, wait, saved_app_number):
                         log_operation("fill_application_form", "SUCCESS", "Successfully retrieved application, re-starting form filling process...")
-                        return fill_application_form(browser, wait)
+                        return fill_application_form(browser, wait, enable_screenshots, screenshots_dir)
                     else:
                         log_operation("fill_application_form", "WARN", "Failed to retrieve application, trying restart_from_homepage...")
                 # If no Application Number or retrieval failed, use restart_from_homepage
                 if restart_from_homepage(browser, wait):
-                    return fill_application_form(browser, wait)
+                    return fill_application_form(browser, wait, enable_screenshots, screenshots_dir)
                 else:
                     log_operation("fill_application_form", "ERROR", "Failed to restart from homepage after page 9")
                     return
@@ -2162,8 +2325,8 @@ def fill_application_form(browser, wait):
         time.sleep(2)
         
         # Fill Page 10
-        page_10_result = fill_page_10(browser, wait)
-        
+        page_10_result = fill_page_10(browser, wait, screenshots_dir=screenshots_dir if enable_screenshots else None)
+
         # Check for application error - stop all page filling immediately
         if page_10_result == "application_error":
             log_operation("fill_application_form", "ERROR", "Application error detected on Page 10 - stopping all page filling immediately!")
@@ -2186,12 +2349,12 @@ def fill_application_form(browser, wait):
                     log_operation("fill_application_form", "INFO", f"Found Application Number: {saved_app_number}, retrieving application...")
                     if retrieve_application(browser, wait, saved_app_number):
                         log_operation("fill_application_form", "SUCCESS", "Successfully retrieved application, re-starting form filling process...")
-                        return fill_application_form(browser, wait)
+                        return fill_application_form(browser, wait, enable_screenshots, screenshots_dir)
                     else:
                         log_operation("fill_application_form", "WARN", "Failed to retrieve application, trying restart_from_homepage...")
                 # If no Application Number or retrieval failed, use restart_from_homepage
                 if restart_from_homepage(browser, wait):
-                    return fill_application_form(browser, wait)
+                    return fill_application_form(browser, wait, enable_screenshots, screenshots_dir)
                 else:
                     log_operation("fill_application_form", "ERROR", "Failed to restart from homepage after page 10")
                     return
